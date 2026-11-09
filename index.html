@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multi Chat Viewer</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --panel: #1a1a22;
+      --border: #2e2e3a;
+      --text: #e8e8ed;
+      --muted: #888;
+      --accent: #9147ff;
+      --yt: #ff0000;
+      --tt: #00f2ea;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-right: auto;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    input[type="text"] {
+      background: #121218;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      min-width: 160px;
+      font-size: 0.9rem;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.secondary { background: #333; }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 10px;
+      padding: 10px;
+      min-height: 0;
+    }
+    .chat-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+    }
+    .chat-card h3 {
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge.tw { background: var(--accent); }
+    .badge.yt { background: var(--yt); }
+    .badge.tt { background: var(--tt); color: #000; }
+    .embed-area {
+      flex: 1;
+      position: relative;
+      background: #000;
+      min-height: 360px;
+    }
+    .embed-area iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      gap: 10px;
+    }
+    .placeholder a {
+      color: var(--tt);
+    }
+    footer {
+      padding: 10px 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    @media (max-width: 700px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Multi Chat Viewer</h1>
+    <div class="controls">
+      <input type="text" id="twInput" placeholder="Twitch channel" />
+      <input type="text" id="ytInput" placeholder="YouTube video ID or URL" />
+      <input type="text" id="ttInput" placeholder="TikTok @username or live URL" />
+      <button onclick="loadChats()">Load Chats</button>
+      <button class="secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Twitch -->
+    <div class="chat-card">
+      <h3><span class="badge tw">TW</span> Twitch Chat</h3>
+      <div class="embed-area" id="twArea">
+        <div class="placeholder">Enter a Twitch channel and click Load</div>
+      </div>
+    </div>
+
+    <!-- YouTube -->
+    <div class="chat-card">
+      <h3><span class="badge yt">YT</span> YouTube Chat</h3>
+      <div class="embed-area" id="ytArea">
+        <div class="placeholder">Enter a YouTube live video ID / URL</div>
+      </div>
+    </div>
+
+    <!-- TikTok -->
+    <div class="chat-card">
+      <h3><span class="badge tt">TT</span> TikTok</h3>
+      <div class="embed-area" id="ttArea">
+        <div class="placeholder">
+          TikTok does not offer a public chat embed.<br><br>
+          Use the official TikTok app/web or a dedicated tool like AxelChat / StreamBuddy for live chat.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Official embeds only · No scraping · Hosted on GitHub Pages
+  </footer>
+
+  <script>
+    function extractYtId(input) {
+      if (!input) return null;
+      input = input.trim();
+      if (/^[\w-]{11}$/.test(input)) return input;
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/|youtube\.com\/embed\/)([\w-]{11})/,
+        /youtube\.com\/.*[?&]v=([\w-]{11})/
+      ];
+      for (const p of patterns) {
+        const m = input.match(p);
+        if (m) return m[1];
+      }
+      return null;
+    }
+
+    function loadChats() {
+      const tw = document.getElementById('twInput').value.trim().replace(/^@/, '');
+      const ytRaw = document.getElementById('ytInput').value;
+      const tt = document.getElementById('ttInput').value.trim();
+
+      // Twitch
+      const twArea = document.getElementById('twArea');
+      if (tw) {
+        const parent = location.hostname || 'localhost';
+        twArea.innerHTML = `<iframe src="https://www.twitch.tv/embed/${encodeURIComponent(tw)}/chat?parent=${parent}&darkpopout" allowfullscreen></iframe>`;
+      } else {
+        twArea.innerHTML = `<div class="placeholder">Enter a Twitch channel and click Load</div>`;
+      }
+
+      // YouTube
+      const ytArea = document.getElementById('ytArea');
+      const ytId = extractYtId(ytRaw);
+      if (ytId) {
+        // YouTube live chat embed
+        ytArea.innerHTML = `<iframe src="https://www.youtube.com/live_chat?v=${ytId}&embed_domain=${location.hostname}" allowfullscreen></iframe>`;
+      } else if (ytRaw) {
+        ytArea.innerHTML = `<div class="placeholder">Could not parse YouTube ID from: ${ytRaw}</div>`;
+      } else {
+        ytArea.innerHTML = `<div class="placeholder">Enter a YouTube live video ID / URL</div>`;
+      }
+
+      // TikTok
+      const ttArea = document.getElementById('ttArea');
+      if (tt) {
+        let url = tt;
+        if (tt.startsWith('@') || !tt.includes('tiktok.com')) {
+          url = `https://www.tiktok.com/${tt.startsWith('@') ? tt : '@' + tt}/live`;
+        }
+        ttArea.innerHTML = `
+          <div class="placeholder">
+            <p>TikTok has no public chat embed.</p>
+            <p><a href="${url}" target="_blank" rel="noopener">Open official TikTok Live</a></p>
+            <p style="font-size:0.8rem;margin-top:8px">For real combined chat use AxelChat, StreamBuddy or similar tools.</p>
+          </div>`;
+      } else {
+        ttArea.innerHTML = `<div class="placeholder">TikTok does not offer a public chat embed.<br><br>Use the official TikTok app/web or a dedicated tool like AxelChat / StreamBuddy for live chat.</div>`;
+      }
+    }
+
+    function clearAll() {
+      document.getElementById('twInput').value = '';
+      document.getElementById('ytInput').value = '';
+      document.getElementById('ttInput').value = '';
+      document.getElementById('twArea').innerHTML = `<div class="placeholder">Enter a Twitch channel and click Load</div>`;
+      document.getElementById('ytArea').innerHTML = `<div class="placeholder">Enter a YouTube live video ID / URL</div>`;
+      document.getElementById('ttArea').innerHTML = `<div class="placeholder">TikTok does not offer a public chat embed.<br><br>Use the official TikTok app/web or a dedicated tool like AxelChat / StreamBuddy for live chat.</div>`;
+    }
+
+    // Load from URL params
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(location.search);
+      if (params.get('tw')) document.getElementById('twInput').value = params.get('tw');
+      if (params.get('yt')) document.getElementById('ytInput').value = params.get('yt');
+      if (params.get('tt')) document.getElementById('ttInput').value = params.get('tt');
+      if (params.get('tw') || params.get('yt') || params.get('tt')) loadChats();
+    });
+  </script>
+</body>
+</html>
